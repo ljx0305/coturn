@@ -121,6 +121,7 @@ struct _turn_turnserver {
 	vintp stun_only;
 	vintp no_stun;
 	vintp prod;
+	vintp web_admin_listen_on_workers;
 	vintp secure_stun;
 	turn_credential_type ct;
 	get_alt_addr_cb alt_addr_cb;
@@ -132,7 +133,7 @@ struct _turn_turnserver {
 	release_allocation_quota_cb raqcb;
 	int external_ip_set;
 	ioa_addr external_ip;
-	vintp no_loopback_peers;
+	vintp allow_loopback_peers;
 	vintp no_multicast_peers;
 	send_turn_session_info_cb send_turn_session_info;
 	send_https_socket_cb send_https_socket;
@@ -169,6 +170,9 @@ struct _turn_turnserver {
 	/* oAuth: */
 	int oauth;
 	const char* oauth_server_name;
+
+	/* Keep Address Family */
+	int keep_address_family;
 };
 
 const char * get_version(turn_turnserver *server);
@@ -196,12 +200,13 @@ void init_turn_server(turn_turnserver* server,
 				    vintp stun_only,
 				    vintp no_stun,
 				    vintp prod,
+				    vintp web_admin_listen_on_workers,
 				    turn_server_addrs_list_t *alternate_servers_list,
 				    turn_server_addrs_list_t *tls_alternate_servers_list,
 				    turn_server_addrs_list_t *aux_servers_list,
 				    int self_udp_balance,
 				    vintp no_multicast_peers,
-				    vintp no_loopback_peers,
+				    vintp allow_loopback_peers,
 				    ip_range_list_t* ip_whitelist,
 				    ip_range_list_t* ip_blacklist,
 				    send_socket_to_relay_cb send_socket_to_relay,
@@ -212,7 +217,8 @@ void init_turn_server(turn_turnserver* server,
 				    send_https_socket_cb send_https_socket,
 				    allocate_bps_cb allocate_bps_func,
 				    int oauth,
-				    const char* oauth_server_name);
+				    const char* oauth_server_name,
+					int keep_address_family);
 
 ioa_engine_handle turn_server_get_engine(turn_turnserver *s);
 

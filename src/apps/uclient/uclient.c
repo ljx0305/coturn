@@ -261,6 +261,7 @@ int send_buffer(app_ur_conn_info *clnet_info, stun_buffer* message, int data_con
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"Socket write error 111.666: \n");
 					if (handle_socket_error())
 						break;
+					/* Falls through. */
 				case SSL_ERROR_SSL:
 				{
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "SSL write error: \n");
@@ -270,6 +271,7 @@ int send_buffer(app_ur_conn_info *clnet_info, stun_buffer* message, int data_con
 						ERR_error_string(ERR_get_error(),buf),
 						SSL_get_error(ssl, len));
 				}
+				/* Falls through. */
 				default:
 					clnet_info->broken = 1;
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"Unexpected error while writing!\n");
@@ -457,6 +459,7 @@ int recv_buffer(app_ur_conn_info *clnet_info, stun_buffer* message, int sync, in
 							"Socket read error 111.999: \n");
 					if (handle_socket_error())
 						break;
+					/* Falls through. */
 				case SSL_ERROR_SSL: {
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "SSL write error: \n");
 					char buf[1024];
@@ -464,6 +467,7 @@ int recv_buffer(app_ur_conn_info *clnet_info, stun_buffer* message, int sync, in
 							ERR_error_string(ERR_get_error(), buf),
 							SSL_get_error(ssl, rc));
 				}
+				/* Falls through. */
 				default:
 					clnet_info->broken = 1;
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,
@@ -525,6 +529,7 @@ int recv_buffer(app_ur_conn_info *clnet_info, stun_buffer* message, int sync, in
 							"Socket read error 111.999: \n");
 					if (handle_socket_error())
 						break;
+					/* Falls through. */
 				case SSL_ERROR_SSL: {
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "SSL write error: \n");
 					char buf[1024];
@@ -532,6 +537,7 @@ int recv_buffer(app_ur_conn_info *clnet_info, stun_buffer* message, int sync, in
 							ERR_error_string(ERR_get_error(), buf),
 							SSL_get_error(ssl, rc));
 				}
+				/* Falls through. */
 				default:
 					clnet_info->broken = 1;
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,
@@ -666,14 +672,15 @@ static int client_read(app_ur_session *elem, int is_tcp_data, app_tcp_conn_info 
 
 		uint16_t chnumber = 0;
 
-		const message_info *mi = NULL;
-
+		message_info mi;
+		int miset=0;
 		size_t buffers = 1;
 
 		if(is_tcp_data) {
-		   if ((int)elem->in_buffer.len == clmessage_length) {
-		     mi = (message_info*)(elem->in_buffer.buf);
-		   }
+		  if ((int)elem->in_buffer.len == clmessage_length) {
+		    ns_bcopy((elem->in_buffer.buf), &mi, sizeof(message_info));
+		    miset=1;
+		  }
 		} else if (stun_is_indication(&(elem->in_buffer))) {
 
 			uint16_t method = stun_get_method(&elem->in_buffer);
@@ -720,7 +727,8 @@ static int client_read(app_ur_session *elem, int is_tcp_data, app_tcp_conn_info 
 
 				const u08bits* data = stun_attr_get_value(sar);
 
-				mi = (const message_info*) data;
+				ns_bcopy(data, &mi, sizeof(message_info));
+				miset=1;
 			}
 
 		} else if (stun_is_success_response(&(elem->in_buffer))) {
@@ -775,7 +783,8 @@ static int client_read(app_ur_session *elem, int is_tcp_data, app_tcp_conn_info 
 					return rc;
 				}
 
-				mi = (message_info*)(elem->in_buffer.buf + 4);
+				ns_bcopy(elem->in_buffer.buf + 4, &mi, sizeof(message_info));
+				miset=1;
 				applen = elem->in_buffer.len -4;
 			}
 		} else {
@@ -784,15 +793,15 @@ static int client_read(app_ur_session *elem, int is_tcp_data, app_tcp_conn_info 
 			return rc;
 		}
 
-		if(mi) {
+		if(miset) {
 			/*
 			printf("%s: 111.111: msgnum=%d, rmsgnum=%d, sent=%lu, recv=%lu\n",__FUNCTION__,
 				mi->msgnum,elem->recvmsgnum,(unsigned long)mi->mstime,(unsigned long)current_mstime);
 				*/
-			if(mi->msgnum != elem->recvmsgnum+1)
+			if(mi.msgnum != elem->recvmsgnum+1)
 				++(elem->loss);
 			else {
-			  u64bits clatency = (u64bits)time_minus(current_mstime,mi->mstime);
+			  u64bits clatency = (u64bits)time_minus(current_mstime,mi.mstime);
 			  if(clatency>max_latency)
 			    max_latency = clatency;
 			  if(clatency<min_latency)
@@ -810,7 +819,7 @@ static int client_read(app_ur_session *elem, int is_tcp_data, app_tcp_conn_info 
 			  }
 			}
 
-			elem->recvmsgnum = mi->msgnum;
+			elem->recvmsgnum = mi.msgnum;
 		}
 
 		elem->rmsgnum+=buffers;
